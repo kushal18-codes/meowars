@@ -1,0 +1,427 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#f6f1e5">
+  <meta name="description" content="A tiny pixel-art adventure about cats on Mars.">
+  <title>Meowars</title>
+  <style>
+    :root { --paper: #f6f1e5; --ink: #312d32; --muted: #706a66; --orange: #b74430; --mono: 'Courier New', monospace; }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--paper); color: var(--ink); font: 14px Arial, sans-serif; }
+    button { color: inherit; font: inherit; cursor: pointer; touch-action: manipulation; }
+    button:focus-visible, #joystick:focus-visible { outline: 3px solid #267a80; outline-offset: 5px; }
+    .page { max-width: 1000px; margin: auto; padding: 24px; }
+    header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; }
+    .brand { display: flex; align-items: center; gap: 10px; }
+    .brand svg { width: 30px; height: 30px; }
+    h1 { font: bold 22px var(--mono); letter-spacing: -1px; margin: 0; }
+    #sound { min-height: 44px; padding: 8px; border: 0; background: none; color: var(--muted); font: 11px var(--mono); }
+    #sound[aria-pressed="true"] { color: #456838; }
+    .game { border: 3px solid var(--ink); box-shadow: 4px 4px 0 #d7cfbe; background: #302932; }
+    .objective { display: flex; justify-content: space-between; align-items: center; gap: 12px; min-height: 38px; padding: 8px 16px; color: #f5e5d1; font: 11px var(--mono); }
+    #progress { color: #efbc60; white-space: nowrap; }
+    #world { width: 100%; height: auto; display: block; image-rendering: pixelated; }
+    .dialogue { display: flex; align-items: center; gap: 12px; min-height: 84px; padding: 14px 18px; background: #fff9ec; border-top: 3px solid var(--ink); }
+    #portrait { width: 42px; height: 42px; flex-shrink: 0; background: #e5d9bc; image-rendering: pixelated; }
+    #speaker { color: var(--orange); font: bold 10px var(--mono); margin-bottom: 5px; }
+    #dialogue-text { font-size: 13px; line-height: 1.5; margin: 0; }
+    .controls { display: flex; justify-content: space-between; align-items: center; gap: 20px; max-width: 390px; margin: 14px auto 0; }
+    .control { width: 140px; text-align: center; }
+    #joystick { position: relative; width: 140px; height: 120px; touch-action: none; user-select: none; cursor: grab; }
+    #joystick:active { cursor: grabbing; }
+    #joystick .back { border: 2px solid #8e8170; }
+    #joystick .front { border: 2px solid var(--ink); }
+    .control-label { display: block; color: var(--muted); font: 10px var(--mono); }
+    .primary { min-height: 58px; padding: 14px 20px; border: 2px solid var(--ink); box-shadow: 3px 3px 0 var(--ink); background: #efbc60; font: bold 12px var(--mono); }
+    .primary:hover { background: #ffd185; }
+    .primary:active { box-shadow: 1px 1px 0 var(--ink); transform: translate(2px, 2px); }
+    .primary:disabled { cursor: default; background: #e5dfd2; color: #6d665d; border-color: #b7ad9b; box-shadow: none; transform: none; }
+    #action { width: 130px; margin: 31px 0; }
+    #action-hint { min-height: 12px; }
+    .keyboard-hint { color: var(--muted); font: 10px var(--mono); text-align: center; margin: 20px 0 0; }
+    dialog { width: calc(100% - 40px); max-width: 360px; padding: 28px; border: 3px solid var(--ink); background: var(--paper); color: var(--ink); }
+    dialog::backdrop { background: #241c2bcc; }
+    dialog h2 { font: bold 22px var(--mono); margin: 0 0 14px; }
+    dialog p { line-height: 1.6; margin-bottom: 22px; }
+    dialog button { width: 100%; }
+    @media (max-width: 600px) {
+      .page { padding: 14px; }
+      header { margin-bottom: 12px; }
+      .objective { font-size: 10px; padding: 8px 12px; }
+      .dialogue { padding: 12px; min-height: 94px; }
+      #dialogue-text { font-size: 12px; }
+      .controls { margin-top: 10px; }
+    }
+    @media (hover: none) { .keyboard-hint { display: none; } }
+    @media (prefers-reduced-motion: reduce) { .primary:active { transform: none; } }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <header>
+      <div class="brand">
+        <svg viewBox="0 0 20 20" aria-hidden="true" shape-rendering="crispEdges"><path fill="#b74430" d="M2 2h5v3h6V2h5v14h-3v2H5v-2H2z"/><path fill="#f6f1e5" d="M5 8h3v3H5zm7 0h3v3h-3zM9 12h2v2H9z"/><path fill="#312d32" d="M6 8h2v2H6zm6 0h2v2h-2z"/></svg>
+        <h1>MEOWARS</h1>
+      </div>
+      <button id="sound" aria-pressed="false">Sound off</button>
+    </header>
+    <section class="game" aria-label="Mars adventure">
+      <div class="objective" role="status"><span id="objective">Find the power cells</span><span id="progress">0 / 3</span></div>
+      <canvas id="world" width="576" height="284" aria-label="Pip and Captain Miso on Mars. Use the joystick to explore." aria-describedby="dialogue-text">Your browser needs canvas support to play.</canvas>
+      <div class="dialogue">
+        <canvas id="portrait" width="30" height="30" aria-hidden="true"></canvas>
+        <div role="status"><div id="speaker">MISO</div><p id="dialogue-text">We made it! Find 3 power cells so we can call home.</p></div>
+      </div>
+    </section>
+    <div class="controls" aria-label="Game controls">
+      <div class="control">
+        <div id="joystick" role="group" tabindex="0" aria-label="Move Pip. Drag the joystick or use WASD or arrow keys."></div>
+        <span class="control-label">Drag to move</span>
+      </div>
+      <div class="control">
+        <button class="primary" id="action" aria-keyshortcuts="E" aria-describedby="action-hint" disabled>Interact</button>
+        <span class="control-label" id="action-hint">Move closer</span>
+      </div>
+    </div>
+    <p class="keyboard-hint">Keyboard: WASD / arrows to move · E to interact</p>
+  </main>
+  <dialog id="ending" aria-labelledby="ending-title">
+    <h2 id="ending-title">Welcome home, Pip.</h2>
+    <p>Earth heard us. The flag is up. Time for the first nap on Mars.</p>
+    <button class="primary" id="restart">Play again</button>
+  </dialog>
+
+  <!-- nipplejs 1.0.4, bundled from npm so this file works offline.
+       https://github.com/yoannmoinet/nipplejs
+       The MIT License (MIT)
+       Copyright (c) 2025 Yoann Moinet <yoann.moinet@gmail.com>
+
+       Permission is hereby granted, free of charge, to any person obtaining a copy
+       of this software and associated documentation files (the "Software"), to deal
+       in the Software without restriction, including without limitation the rights
+       to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+       copies of the Software, and to permit persons to whom the Software is
+       furnished to do so, subject to the following conditions:
+
+       The above copyright notice and this permission notice shall be included in all
+       copies or substantial portions of the Software.
+
+       THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+       IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+       FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+       AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+       LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+       OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+       SOFTWARE.
+  -->
+  <script>
+!function(t,i){"object"==typeof exports&&"undefined"!=typeof module?i(exports):"function"==typeof define&&define.amd?define(["exports"],i):i((t="undefined"!=typeof globalThis?globalThis:t||self).nipplejs={})}(this,(function(t){"use strict";const i="dynamic",e="semi",s="static",o="undefined"!=typeof window&&"ontouchstart"in window,n={start:"mousedown",move:"mousemove",end:"mouseup, mouseleave",pressure:"webkitmouseforcechanged"};let r,d;"undefined"!=typeof window&&!!window.PointerEvent?r={start:"pointerdown",move:"pointermove",end:"pointerup, pointercancel, pointerleave",pressure:"webkitmouseforcechanged"}:o?(r={start:"touchstart",move:"touchmove",end:"touchend, touchcancel",pressure:"webkitmouseforcechanged"},d=n):r=n;const h=r,a=d,l=Math.PI/4,c=Math.PI/2,p=(t,i)=>{const e=i.x-t.x,s=i.y-t.y;return Math.sqrt(e*e+s*s)},u=t=>t*(Math.PI/180),f=t=>t*(180/Math.PI),y=new Map,m=t=>{y.has(t)&&clearTimeout(y.get(t)),y.set(t,setTimeout(t,100))},g=(t,i,e)=>{const s=i.split(/[ ,]+/g);for(let i=0;i<s.length;i+=1)t.addEventListener(s[i],e,!1)},v=(t,i,e)=>{const s=i.split(/[ ,]+/g);for(let i=0;i<s.length;i+=1)t.removeEventListener(s[i],e)},x=t=>"force"in t?t.force:"pressure"in t?t.pressure:"webkitForce"in t?t.webkitForce/3:"buttons"in t&&0!==t.buttons?1:0,b=(t,i)=>({identifier:"identifier"in i?i.identifier:"pointerId"in i?i.pointerId:1,isTouch:"touches"in t||"changedTouches"in t,position:{x:i.pageX,y:i.pageY},pressure:x(i),type:t.type,initial:t,raw:i}),k=()=>({x:window.scrollX,y:window.scrollY}),w=(t,i)=>{const{left:e,top:s,right:o,bottom:n,x:r,y:d}=i;s||o||n||e?$(t.style,{top:s,right:o,bottom:n,left:e}):(z(r)||z(d))&&$(t.style,{left:z(r)?`${r}px`:void 0,top:z(d)?`${d}px`:void 0})},T=(t,i="")=>({[t]:i}),$=(t,i)=>{for(const e in i)Object.hasOwn(i,e)&&(t[e]=i[e]);return t},z=t=>"number"==typeof t&&!isNaN(t),O={debug:0,info:1,warning:2,error:3,none:4};let I="warning";class j{constructor(t){this.uid=0,this.index=0,this.name="super",this._domHandlers_=new Map,this._handlers_={},this.name=t,this.log("construct",this.name,this.index)}mapOnEvents(t,i){const e=t.split(/[ ,]+/g);for(let t=0;t<e.length;t+=1)i(e[t])}on(t,i){this.mapOnEvents(t,(t=>{this._handlers_[t]=this._handlers_[t]||new Set,this._handlers_[t].add(i)}))}off(t,i){void 0===t?this._handlers_={}:this.mapOnEvents(t,(t=>{void 0===i?this._handlers_[t]=new Set:this._handlers_[t]&&this._handlers_[t].delete(i)}))}trigger(t,i){this.mapOnEvents(t,(t=>{this.log(`- "${t}" [trigger]`);const e=this._handlers_[t];if(e&&e.size){const s=[...e];for(const e of s)e.call(this,{type:t,target:this,data:i})}}))}bindEvt(t,i,e){const s=t=>{for(const s of(t=>{t.type.toLowerCase().includes("move")&&t.preventDefault();const i=[];if("changedTouches"in t)for(const e of Array.from(t.changedTouches))e&&i.push(e);else i.push(t);return i.map((i=>b(t,i)))})(t))this.log(`- "${i}" [dom:trigger:${s.identifier}]`),e.call(this,s)};this._domHandlers_.set(e,s),g(t,h[i],s),a?.[i]&&g(t,a[i],s)}unbindEvt(t,i,e){const s=this._domHandlers_.get(e);s?(v(t,h[i],s),a?.[i]&&v(t,a[i],s),this._domHandlers_.delete(e)):this.error(`Internal handler not found for event ${i}.`,e)}logPrefix(){return{super:"",joystick:"  ",collection:"    ",factory:"      "}[this.name]}logSuffix(){return`[${this.name}|${this.uid}]`}static get logLevel(){return I}static set logLevel(t){I=t}log(...t){O[I]<=O.debug&&console.log(this.logPrefix(),...t,this.logSuffix())}info(...t){O[I]<=O.info&&console.info(this.logPrefix(),...t,this.logSuffix())}warn(...t){O[I]<=O.warning&&console.warn(this.logPrefix(),...t,this.logSuffix())}error(...t){O[I]<=O.error&&console.error(this.logPrefix(),...t,this.logSuffix())}}const E=class t extends j{constructor(i,e){super("joystick"),this.direction={},this.defaults={size:100,threshold:.1,color:"white",fadeTime:250,dataOnly:!1,restJoystick:!0,restOpacity:.5,mode:"dynamic",zone:document.body,lockX:!1,lockY:!1,shape:"circle"},this.position=e.position,this.frontPosition=e.frontPosition,this.collection=i,this.options={...this.defaults,...e},"dynamic"===this.options.mode&&(this.options.restOpacity=0),this.uid=t.index++,this.ui={el:document.createElement("div"),back:document.createElement("div"),front:document.createElement("div")}}init(){this.options.dataOnly||this.buildEl(),this.trigger("added",this),this.trigger("joystickCreated",this)}get identifier(){return this._identifier}set identifier(t){z(t)?(this._identifier=t,this.trigger("attached",{collection:this.collection,joystick:this,identifier:t})):(this.trigger("detached",{collection:this.collection,joystick:this,identifier:this._identifier}),this._identifier=void 0)}resolveColors(){const t=this.options.color;return"object"==typeof t&&null!==t?t:{front:t,back:t}}buildEl(){this.ui.el.className=`joystick collection_${this.collection.uid}`,this.ui.back.className="back",this.ui.front.className="front",this.ui.el.setAttribute("id",`joystick_${this.collection.uid}_${this.uid}`),this.ui.el.appendChild(this.ui.back),this.ui.el.appendChild(this.ui.front);const t=`${this.options.fadeTime}ms`,i=T("borderRadius","50%"),e=T("transition",`opacity ${t}`),s=this.resolveColors();$(this.ui.el.style,{position:"absolute",opacity:this.options.restOpacity.toString(),display:"block",zIndex:"999",touchAction:"none",userSelect:"none",...e}),$(this.ui.back.style,{position:"absolute",display:"block",width:`${this.options.size}px`,height:`${this.options.size}px`,left:"0",marginLeft:-this.options.size/2+"px",marginTop:-this.options.size/2+"px",background:s.back,..."circle"===this.options.shape?i:{}}),$(this.ui.front.style,{width:this.options.size/2+"px",height:this.options.size/2+"px",position:"absolute",display:"block",left:"0",marginLeft:-this.options.size/4+"px",marginTop:-this.options.size/4+"px",background:s.front,opacity:".5",transform:"translate(0px, 0px)",...i})}get pressure(){return this._pressure??0}set pressure(t){t!==this._pressure&&(this._pressure=t,this.trigger("pressure",t))}startPressureInterval(t){this.pressureInterval||(this.pressureInterval=window.setInterval((()=>{this.pressure=x(t)}),100))}stopPressureInterval(){clearInterval(this.pressureInterval),this.pressureInterval=void 0}addToDom(){this.options.dataOnly||this.options.zone.contains(this.ui.el)||this.options.zone.appendChild(this.ui.el)}removeFromDom(){!this.options.dataOnly&&this.options.zone.contains(this.ui.el)&&this.options.zone.removeChild(this.ui.el)}clearTimeouts(){clearTimeout(this.removeTimeout),clearTimeout(this.showTimeout),clearTimeout(this.restTimeout),clearTimeout(this.activeTimeout),this.removeTimeout=void 0,this.showTimeout=void 0,this.restTimeout=void 0,this.activeTimeout=void 0}start(t,i){this.trigger("start",this),this.clearTimeouts(),this.options.dataOnly?"function"==typeof i&&i.call(this):(this.addToDom(),this.startPressureInterval(t),requestAnimationFrame((()=>{this.ui.el.style.opacity="1"})),this.showTimeout=window.setTimeout((()=>{this.showTimeout=void 0,this.trigger("shown",this),"function"==typeof i&&i.call(this)}),this.options.fadeTime))}end(t){if(this.resetDirection(),this.clearTimeouts(),this.stopPressureInterval(),this.pressure=0,this.trigger("end",this),this.options.dataOnly)"function"==typeof t&&t.call(this);else{if(this.ui.el.style.opacity=this.options.restOpacity.toString(),this.options.restJoystick){const i=this.options.restJoystick,e={x:!0===i||!1!==i.x?0:this.frontPosition.x,y:!0===i||!1!==i.y?0:this.frontPosition.y};this.setPosition(t,e)}clearTimeout(this.removeTimeout),this.removeTimeout=window.setTimeout((()=>{this.removeTimeout=void 0,this.ui.el.style.display=this.options.mode===i?"none":"block",this.trigger("hidden",this),this.options.mode===i&&(this.trigger("removed",this),this.destroy()),"function"==typeof t&&t.call(this)}),this.options.fadeTime)}}setTransition(t=!1,i){if(t){const t=100,e=$(T("transition",`transform ${`${t}ms`}`),T("transform",`translate(${this.frontPosition.x}px, ${this.frontPosition.y}px)`));$(this.ui.front.style,e),clearTimeout(this.activeTimeout),this.activeTimeout=window.setTimeout((()=>{this.activeTimeout=void 0,"function"==typeof i&&i.call(this)}),t)}else $(this.ui.front.style,T("transition","none"))}setPosition(t,i){this.frontPosition={x:i.x,y:i.y},this.setTransition(!0),clearTimeout(this.restTimeout),this.restTimeout=window.setTimeout((()=>{this.restTimeout=void 0,"function"==typeof t&&t.call(this),this.setTransition(!1),this.trigger("rested",this)}),this.options.fadeTime)}resetDirection(){this.direction={}}computeDirectionAndTriggerEvents(t){const i=t.angle.radian,e={};return i>l&&i<3*l&&!t.lockX?e.angle="up":i>-l&&i<=l&&!t.lockY?e.angle="left":i>3*-l&&i<=-l&&!t.lockX?e.angle="down":t.lockY||(e.angle="right"),t.lockY||(e.x=i>-c&&i<c?"left":"right"),t.lockX||(e.y=i>0?"up":"down"),t.angle={radian:u(180-t.angle.degree),degree:180-t.angle.degree},this.triggerDirectionEvents(t,e),t}triggerDirectionEvents(t,i){if(t.force>this.options.threshold){const e={x:this.direction.x,y:this.direction.y,angle:this.direction.angle};this.direction=i,t.direction=i,e.x!==i.x&&this.trigger(`plain plain:${i.x}`,t),e.y!==i.y&&this.trigger(`plain plain:${i.y}`,t),e.angle!==i.angle&&this.trigger(`dir dir:${i.angle}`,t)}else this.resetDirection();this.trigger("move",t)}destroy(){this.clearTimeouts(),this.identifier=void 0,this.removeFromDom(),this.trigger("joystickDestroyed",this),this.off()}};E.index=0;let _=E;const C=class t extends j{constructor(o,n){super("collection"),this.all=new Map,this.idles=new Set,this.actives=new Map,this.resting=new Map,this.parentIsFlex=!1,this.defaults={catchDistance:200,color:"white",dataOnly:!1,dynamicPage:!1,fadeTime:250,follow:!1,lockX:!1,lockY:!1,maxNumberOfJoysticks:10,mode:i,multitouch:!1,position:{top:"0px",left:"0px"},restJoystick:!0,restOpacity:.5,shape:"circle",size:100,threshold:.1,zone:document.body},this.factory=o,this.uid=t.index++,this.options={...this.defaults,...n},this.options.mode!==s&&this.options.mode!==e||(this.options.multitouch=!1),this.options.multitouch||(this.options.maxNumberOfJoysticks=1);const r=this.options.zone.parentElement&&getComputedStyle(this.options.zone.parentElement);"flex"===r?.display&&(this.parentIsFlex=!0);"static"===getComputedStyle(this.options.zone).position&&this.warn('The zone element has no CSS "position" set (it is "static").',"Joysticks may not be positioned correctly.",'Set "position: relative" (or absolute/fixed) on the zone element.'),this.box=this.options.zone.getBoundingClientRect(),this.bindEvt(this.options.zone,"start",this.processOnStart),$(this.options.zone.style,{touchAction:"none",userSelect:"none",webkitUserSelect:"none"}),"undefined"!=typeof ResizeObserver&&(this.resizeObserver=new ResizeObserver((()=>{this.reposition()})),this.resizeObserver.observe(this.options.zone))}init(){if(this.trigger("collectionCreated",this),this.options.mode===s){this.createJoystick(this.options.position).addToDom()}}getJoystickByUid(t){return void 0===t?this.all.values().next().value:this.all.get(t)}bindJoystick(t){t.on("joystickDestroyed",(()=>{this.deleteJoystickFromLists(t)})),t.on("attached",(i=>{this.idles.delete(i.data.joystick.uid),this.actives.set(i.data.identifier,t)})),t.on("detached",(t=>{this.idles.add(t.data.joystick.uid),this.deleteIdentifierFromLists(t.data.identifier)})),t.on("end",(i=>{z(i.data.identifier)&&(this.actives.delete(i.data.identifier),this.resting.set(i.data.identifier,t)),this.idles.add(i.data.uid)})),t.on("start",(t=>{z(t.data.identifier)&&this.resting.delete(t.data.identifier)})),t.on("hidden",(t=>{z(t.data.identifier)&&this.resting.delete(t.data.identifier)})),t.on("pressure",(i=>{this.trigger(`pressure ${t.uid}:pressure`,i.data)})),t.on("attached detached",(t=>{const i=`${t.type} ${t.data.joystick.uid}:${t.type}`;this.trigger(i,t.data)})),t.on("added start shown hidden rested removed end joystickCreated joystickDestroyed",(t=>{const i=`${t.type} ${t.data.uid}:${t.type}`;this.trigger(i,t.data)})),t.on("move",(t=>{this.trigger(`move ${t.data.instance.uid}:move`,t.data)})),t.on("dir dir:up dir:right dir:down dir:left",(t=>{const i=`${t.type} ${t.data.instance.uid}:${t.type}`;this.trigger(i,t.data)})),t.on("plain plain:up plain:right plain:down plain:left",(t=>{const i=`${t.type} ${t.data.instance.uid}:${t.type}`;this.trigger(i,t.data)}))}deleteJoystickFromLists(t){this.deleteUidFromLists(t.uid),z(t.identifier)&&this.deleteIdentifierFromLists(t.identifier)}deleteUidFromLists(t){this.all.delete(t),this.idles.delete(t)}deleteIdentifierFromLists(t){this.actives.delete(t),this.resting.delete(t)}getOrCreate(t){if(this.options.mode===e||this.options.mode===s){const i=this.idles.values().next().value;if(z(i)){const t=this.all.get(i);if(t)return t;this.error(`Couldn't find the joystick ${i}. Creating a new one.`),this.deleteUidFromLists(i)}if(this.options.mode===e)return this.createJoystick(t);this.warn("Couldn't find the expected joystick. Creating a new one.")}return this.createJoystick(t)}createJoystick(t){const i=this.factory.scroll,e=this.parentIsFlex?i.x:i.x+this.box.left,s=this.parentIsFlex?i.y:i.y+this.box.top;let o,n;if(z(t.x)&&z(t.y))o={x:t.x-e,y:t.y-s},n={x:t.x,y:t.y};else{if(!(t.top||t.right||t.bottom||t.left))return void this.error("Invalid or missing position.",t);{const e=document.createElement("DIV");$(e.style,{visibility:"hidden",position:"absolute",top:t.top,right:t.right,bottom:t.bottom,left:t.left}),this.options.zone.appendChild(e);const s=e.getBoundingClientRect();this.options.zone.removeChild(e),o=t,n={x:s.left+i.x,y:s.top+i.y}}}const r=new _(this,{color:this.options.color,size:this.options.size,threshold:this.options.threshold,fadeTime:this.options.fadeTime,dataOnly:this.options.dataOnly,restJoystick:this.options.restJoystick,restOpacity:this.options.restOpacity,mode:this.options.mode,position:n,zone:this.options.zone,frontPosition:{x:0,y:0},shape:this.options.shape});return this.all.has(r.uid)&&this.error(`Joystick with uid ${r.uid} already exists.`),this.options.dataOnly||(w(r.ui.el,o),w(r.ui.front,r.frontPosition)),this.all.set(r.uid,r),this.idles.add(r.uid),this.bindJoystick(r),r.init(),r}processOnStart(t,i=0){if(this.box=this.options.zone.getBoundingClientRect(),!this.actives.has(t.identifier)&&this.actives.size>=this.options.maxNumberOfJoysticks)return void this.warn("No more joysticks allowed.");const s=this.actives.get(t.identifier)||this.resting.get(t.identifier)||this.getOrCreate(t.position),o=()=>{s.start(t.raw),s.identifier=t.identifier,this.processOnMove(t,!0)};if(this.options.mode===e){p(t.position,s.position)<=this.options.catchDistance?o():i<3?(s.destroy(),this.processOnStart(t,i+1)):this.error("Max semi-mode recursion depth reached.")}else o()}processOnMove(t,i=!1){const e=this.actives.get(t.identifier),s=this.factory.scroll;if(!e)return this.error(`Found zombie joystick onMove with identifier ${t.identifier}`),void this.deleteIdentifierFromLists(t.identifier);this.options.dynamicPage&&this.reposition();const o=e.options.size/2;let n={x:t.position.x,y:t.position.y};this.options.lockX&&(n.y=e.position.y),this.options.lockY&&(n.x=e.position.x);let r=p(n,e.position);const d=((t,i)=>{const e=i.x-t.x,s=i.y-t.y;return f(Math.atan2(s,e))})(n,e.position),h=u(d),a=r/o,l={distance:r,position:n};let c,y;"circle"===e.options.shape?(c=Math.min(r,o),y=((t,i,e)=>{const s=u(e);return{x:t.x-i*Math.cos(s),y:t.y-i*Math.sin(s)}})(e.position,c,d)):(y=((t,i,e)=>({x:Math.min(Math.max(t.x,i.x-e),i.x+e),y:Math.min(Math.max(t.y,i.y-e),i.y+e)}))(n,e.position,o),c=p(y,e.position));let m={x:0,y:0};if(this.options.follow){if(r>o){const t=n.x-y.x,i=n.y-y.y;m={x:t,y:-i},e.position.x+=t,e.position.y+=i,$(e.ui.el.style,{top:e.position.y-(this.box.top+s.y)+"px",left:e.position.x-(this.box.left+s.x)+"px"}),r=p(n,e.position)}}else n=y,r=c;const g=n.x-e.position.x,v=n.y-e.position.y;e.frontPosition={x:g,y:v},this.options.dataOnly||(i&&e.setTransition(!0,(()=>{e.setTransition(!1)})),e.ui.front.style.transform=`translate(${g}px,${v}px)`);const x={position:n,force:a,pressure:t.pressure,distance:r,angle:{radian:h,degree:d},vector:{x:g/o,y:-v/o},raw:l,instance:e,lockX:this.options.lockX,lockY:this.options.lockY,baseDelta:m};e.computeDirectionAndTriggerEvents(x)}processOnEnd(t){const i=this.actives.get(t.identifier);if(!i)return this.error(`Found zombie joystick onEnd with identifier ${t.identifier}`),void this.deleteIdentifierFromLists(t.identifier);i.end()}reposition(){this.factory.scroll=k(),this.box=this.options.zone.getBoundingClientRect();const t=this.factory.scroll;this.all.forEach((i=>{if(i.options.dataOnly)return;const e=i.ui.el.getBoundingClientRect();i.position={x:t.x+e.left,y:t.y+e.top}}))}destroy(){this.resizeObserver&&(this.resizeObserver.disconnect(),this.resizeObserver=void 0),this.unbindEvt(this.options.zone,"start",this.processOnStart),this.all.forEach((t=>{t.destroy()})),this.all.clear(),this.idles.clear(),this.actives.clear(),this.resting.clear(),this.trigger("collectionDestroyed",this),this.off()}};C.index=0;let D=C;const L=new class extends j{constructor(){super("factory"),this.scroll=k(),this.binded=!1,this.joysticksByUid=new Map,this.joysticksByIdentifier=new Map,this.collections=new Set,this.resizeHandler=null,this.scrollHandler=null,this.repositionAll=()=>{this.collections.forEach((t=>{t.reposition()}))},this.refreshScroll=()=>{this.scroll=k()},this.bindResize(),this.bindScroll(),this.trigger("factoryCreated",this)}bindResize(){this.resizeHandler=()=>m(this.repositionAll),g(window,"resize",this.resizeHandler)}bindScroll(){this.scrollHandler=()=>m(this.refreshScroll),g(window,"scroll",this.scrollHandler)}getJoystickByUid(t){return this.joysticksByUid.get(t)}getJoystickByIdentifier(t){return this.joysticksByIdentifier.get(t)}create(t){const i=new D(this,t);return this.bindCollection(i),this.collections.add(i),i.init(),i}removeJoystickFromLists(t){this.joysticksByUid.delete(t.uid),z(t.identifier)&&this.joysticksByIdentifier.delete(t.identifier)}bindCollection(t){t.on("collectionDestroyed",(t=>{this.collections.delete(t.data),t.data.all.forEach((t=>{this.removeJoystickFromLists(t)})),this.unbindDocument()})),t.on("joystickDestroyed",(t=>{this.removeJoystickFromLists(t.data),this.unbindDocument()})),t.on("end",(t=>{z(t.data.identifier)&&this.joysticksByIdentifier.delete(t.data.identifier),this.unbindDocument()})),t.on("added",(t=>{this.joysticksByUid.set(t.data.uid,t.data),this.bindDocument()})),t.on("attached",(t=>{this.joysticksByIdentifier.set(t.data.identifier,t.data.joystick)})),t.on("pressure",(t=>{this.trigger(`pressure ${t.target.uid}:pressure`,t.data)})),t.on("collectionCreated collectionDestroyed",(t=>{const i=`${t.type} ${t.data.uid}:${t.type}`;this.trigger(i,t.data)})),t.on("attached detached",(t=>{const i=`${t.type} ${t.data.joystick.uid}:${t.type}`;this.trigger(i,t.data)})),t.on("added start shown hidden rested removed end joystickCreated joystickDestroyed",(t=>{const i=`${t.type} ${t.data.uid}:${t.type}`;this.trigger(i,t.data)})),t.on("move",(t=>{this.trigger(`move ${t.data.instance.uid}:move`,t.data)})),t.on("dir dir:up dir:right dir:down dir:left",(t=>{const i=`${t.type} ${t.data.instance.uid}:${t.type}`;this.trigger(i,t.data)})),t.on("plain plain:up plain:right plain:down plain:left",(t=>{const i=`${t.type} ${t.data.instance.uid}:${t.type}`;this.trigger(i,t.data)}))}cleanInactiveTouches(t){if(!("touches"in t.initial))return;const e=Array.from(t.initial.touches).map((t=>t.identifier));this.log("Cleaning inactive",e,Array.from(this.joysticksByIdentifier.keys()));const s=Array.from(this.joysticksByIdentifier.entries());for(const[o,n]of s)if(n.collection.options.mode===i&&!e.includes(o)){if(!n)return void this.error(`No collection found for cleaning identifier ${o}`);this.log("💣 Cleaning",o);const i=t.raw;n.collection.processOnEnd(b(t.initial,{identifier:o,pageX:i.pageX,pageY:i.pageY,clientX:i.clientX,clientY:i.clientY}))}}bindDocument(){this.binded||(this.log("bind dom"),this.bindEvt(document,"start",this.onstart),this.bindEvt(document,"move",this.onmove),this.bindEvt(document,"end",this.onend),this.bindEvt(document,"pressure",this.onpressure),this.binded=!0)}unbindDocument(t=!1){!this.binded||this.joysticksByUid.size&&!0!==t||(this.log((t?"force ":"")+"unbind dom"),this.unbindEvt(document,"start",this.onstart),this.unbindEvt(document,"move",this.onmove),this.unbindEvt(document,"end",this.onend),this.unbindEvt(document,"pressure",this.onpressure),this.binded=!1)}onstart(t){this.cleanInactiveTouches(t)}onmove(t){this.handleEventInCollection(t,(i=>{i.processOnMove(t)}))}onend(t){this.cleanInactiveTouches(t),this.handleEventInCollection(t,(i=>{i.processOnEnd(t)}))}onpressure(t){t.initial.preventDefault();const i=this.joysticksByIdentifier.get(t.identifier);i?i.pressure=t.pressure:this.error(`No joystick found for pressure event ${t.identifier}`)}handleEventInCollection(t,i){const e=this.joysticksByIdentifier.get(t.identifier);e&&i(e.collection)}destroy(){this.unbindDocument(!0),this.collections.forEach((t=>{t.destroy()})),this.resizeHandler&&(v(window,"resize",this.resizeHandler),this.resizeHandler=null),this.scrollHandler&&(v(window,"scroll",this.scrollHandler),this.scrollHandler=null),this.trigger("factoryDestroyed",this),this.off()}},P=t=>L.create(t),S=t=>{j.logLevel=t},M=()=>j.logLevel;var J={create:P,factory:L,setLogLevel:S,getLogLevel:M};t.create=P,t.default=J,t.factory=L,t.getLogLevel=M,t.setLogLevel=S,Object.defineProperty(t,"__esModule",{value:!0})}));
+  </script>
+  <script>
+    // Game code. The drawing helpers below make the pixel art.
+    const canvas = document.getElementById('world');
+    const ctx = canvas.getContext('2d');
+    const portrait = document.getElementById('portrait').getContext('2d');
+    const action = document.getElementById('action');
+    const actionHint = document.getElementById('action-hint');
+    const ending = document.getElementById('ending');
+    const keys = {};
+    const movement = { x: 0, y: 0 };
+    const player = { x: 153, y: 230 };
+    const cells = [{ x: 217, y: 207 }, { x: 378, y: 172 }, { x: 467, y: 246 }];
+    const captain = { x: 304, y: 222 };
+    const radio = { x: 523, y: 176 };
+    const flag = { x: 499, y: 218 };
+    let repaired = false;
+    let finished = false;
+    let nearby = null;
+    let walking = false;
+    let soundOn = false;
+    let audioContext;
+    let lastTime = 0;
+    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    // Tiny, hand-drawn sprites. Dots are empty pixels.
+    const catSprite = [
+      '...sssssss...', '..swwwwwwws..', '.swowwwwows.',
+      '.swoowwoows.', '.swooooooos.', '.swoDooDoos.',
+      '.swooorooos.', '..swooooos..', '...sssssss...',
+      '..swwwwwwws..', '.swwwwbwwwws.', '.swsssssssws.',
+      '..swwwwwwws..', '...ss...ss...', '...DD...DD...'
+    ];
+    const cellSprite = ['..dddd..', '..dwwd..', '.dyyyyd.', '.dywwyd.', '.dywwyd.', '.dyyyyd.', '..dddd..'];
+    const catColors = { s: '#40333b', w: '#f6e9ca', o: '#db9661', D: '#3c3039', r: '#bb655d', b: '#bd6450' };
+    function rect(x, y, width, height, color, context = ctx) {
+      context.fillStyle = color;
+      context.fillRect(Math.round(x), Math.round(y), width, height);
+    }
+    function sprite(pattern, x, y, colors, scale = 1, context = ctx) {
+      pattern.forEach((row, yy) => [...row].forEach((pixel, xx) => {
+        if (colors[pixel]) rect(x + xx * scale, y + yy * scale, scale, scale, colors[pixel], context);
+      }));
+    }
+    function label(text, x, y, color = '#f9dfb1', size = 6) {
+      ctx.font = `bold ${size}px Courier New`;
+      ctx.textAlign = 'center';
+      ctx.fillStyle = color;
+      ctx.fillText(text, Math.round(x), Math.round(y));
+    }
+    function polygon(points, color) {
+      ctx.fillStyle = color;
+      ctx.beginPath();
+      points.forEach(([x, y], i) => i ? ctx.lineTo(x, y) : ctx.moveTo(x, y));
+      ctx.closePath();
+      ctx.fill();
+    }
+    function crater(x, y, size) {
+      rect(x - size, y - 2, size * 2, 5, '#a74f44');
+      rect(x - size + 3, y - 4, size * 2 - 6, 8, '#a74f44');
+      rect(x - size + 3, y - 3, size * 2 - 6, 3, '#7f4140');
+      rect(x - size + 2, y + 3, size * 2 - 4, 2, '#e38a60');
+    }
+    function rock(x, y, size = 1) {
+      polygon([[x-5*size,y],[x-5*size,y-3*size],[x-2*size,y-3*size],[x-2*size,y-6*size],[x+3*size,y-6*size],[x+3*size,y-4*size],[x+5*size,y-4*size],[x+5*size,y]], '#a45046');
+      rect(x - 2 * size, y - 6 * size, 4 * size, 2 * size, '#e79469');
+      rect(x - 6 * size, y, 13 * size, size, '#b15b49');
+    }
+    function drawLander() {
+      rect(69, 212, 76, 5, '#a75547');
+      rect(86, 189, 4, 20, '#493b43'); rect(125, 189, 4, 20, '#493b43');
+      rect(79, 208, 16, 4, '#41353d'); rect(122, 208, 16, 4, '#41353d');
+      rect(87, 132, 41, 57, '#493b43'); rect(81, 148, 53, 35, '#493b43');
+      rect(90, 125, 35, 12, '#493b43'); rect(96, 119, 23, 7, '#493b43');
+      rect(98, 122, 19, 8, '#e1d6bb'); rect(91, 130, 33, 51, '#f4e5c5');
+      rect(85, 149, 6, 29, '#ccc5b1'); rect(124, 149, 6, 29, '#aca6a0');
+      rect(118, 133, 6, 45, '#dbcaac'); rect(91, 176, 33, 12, '#b66352');
+      rect(98, 140, 20, 22, '#493b43'); rect(95, 144, 26, 14, '#493b43');
+      rect(100, 143, 16, 16, '#729494'); rect(98, 146, 20, 9, '#729494');
+      rect(101, 144, 11, 3, '#acd1be'); rect(100, 147, 4, 5, '#acd1be');
+      rect(97, 180, 22, 2, '#efd9af');
+      rect(102, 190, 12, 4, '#807476'); rect(104, 194, 8, 13, '#baa88a');
+      for (let i = 0; i < 4; i++) rect(102, 195 + i * 4, 12, 2, '#493b43');
+      rect(74, 159, 8, 23, '#4c3c42'); rect(70, 177, 12, 7, '#4c3c42');
+      rect(75, 159, 4, 17, '#bc6b55'); rect(134, 159, 7, 25, '#4c3c42');
+      rect(135, 160, 4, 17, '#bc6b55'); rect(103, 113, 8, 6, '#b85f51');
+      rect(106, 103, 2, 10, '#dcc8ad');
+      label('THE CATNAP', 108, 226, '#f8ce99', 5);
+    }
+    function drawRadio(time) {
+      rect(513, 174, 23, 4, '#a75547'); rect(521, 148, 3, 27, '#4d3c43');
+      rect(515, 165, 18, 9, '#443944'); rect(518, 167, 12, 4, '#bcae91');
+      rect(526, 168, 2, 2, repaired ? '#bce294' : '#b45148');
+      polygon([[505,139],[509,150],[517,155],[526,150],[532,136],[528,140],[521,146],[515,146]], '#493a43');
+      polygon([[508,139],[512,148],[518,151],[524,148],[529,139],[521,144],[515,144]], '#e6d6b7');
+      rect(519, 135, 2, 11, '#a28775'); rect(518, 133, 4, 3, '#f3d6a4');
+      if (repaired) {
+        const blink = reduceMotion || Math.floor(time * 2) % 2 === 0;
+        if (blink) { rect(525, 126, 2, 3, '#dce8b4'); rect(529, 122, 2, 3, '#dce8b4'); }
+      }
+      label('RADIO', 522, 186, '#f8ce99', 5);
+    }
+    function drawFlag(time) {
+      if (!repaired) return;
+      if (!finished) {
+        rect(490, 217, 19, 2, '#ebc28c'); rect(499, 211, 2, 13, '#ebc28c');
+        label('PLANT FLAG', 500, 235, '#ffe4b3', 5);
+        return;
+      }
+      rect(498, 183, 3, 38, '#4b3d41'); rect(499, 183, 1, 35, '#f6e2b9');
+      const flutter = !reduceMotion && Math.sin(time * 3) > 0 ? 1 : 0;
+      rect(502, 185, 22, 14, '#f4dcaa'); rect(524, 186 + flutter, 3, 13, '#d7b481');
+      rect(511, 191, 7, 5, '#b85b46'); rect(509, 188, 2, 3, '#b85b46');
+      rect(513, 187, 2, 3, '#b85b46'); rect(517, 188, 2, 3, '#b85b46');
+    }
+
+    // A fixed little map keeps the game easy to change.
+    function draw(time) {
+      rect(0, 0, 576, 284, '#302936');
+      for (let i = 0; i < 65; i++) {
+        const x = (i * 97 + 19) % 576, y = (i * 41 + 7) % 111;
+        rect(x, y, i % 9 === 0 ? 2 : 1, 1, i % 3 === 0 ? '#dcc6a6' : '#86707c');
+        if (i % 13 === 0) rect(x, y - 1, 1, 3, '#bba491');
+      }
+      rect(450, 31, 19, 23, '#e4c29a'); rect(446, 35, 27, 15, '#e4c29a');
+      rect(450, 35, 6, 5, '#bd9a8a'); rect(457, 45, 11, 6, '#caa58e');
+      rect(463, 32, 4, 3, '#f0d2a3');
+      polygon([[0,101],[25,101],[25,95],[48,95],[48,101],[81,101],[81,87],[108,87],[108,98],[134,98],[134,79],[156,79],[156,89],[174,89],[174,81],[204,81],[204,94],[239,94],[239,106],[261,106],[261,96],[293,96],[293,101],[318,101],[318,88],[342,88],[342,99],[378,99],[378,87],[404,87],[404,78],[427,78],[427,85],[452,85],[452,100],[480,100],[480,92],[508,92],[508,103],[550,103],[550,95],[576,95],[576,150],[0,150]], '#66434d');
+      polygon([[0,126],[29,126],[29,118],[58,118],[58,125],[84,125],[84,111],[117,111],[117,117],[159,117],[159,109],[187,109],[187,116],[214,116],[214,127],[262,127],[262,119],[301,119],[301,132],[339,132],[339,117],[369,117],[369,109],[409,109],[409,118],[440,118],[440,111],[472,111],[472,120],[515,120],[515,131],[552,131],[552,123],[576,123],[576,173],[0,173]], '#92564f');
+      rect(0, 144, 576, 140, '#c77251');
+      polygon([[0,141],[50,141],[50,148],[131,148],[131,141],[196,141],[196,149],[263,149],[263,145],[341,145],[341,139],[411,139],[411,145],[497,145],[497,151],[576,151],[576,162],[484,162],[484,157],[421,157],[421,154],[348,154],[348,161],[260,161],[260,158],[190,158],[190,153],[115,153],[115,159],[47,159],[47,153],[0,153]], '#dd895a');
+      polygon([[0,240],[43,240],[43,234],[95,234],[95,242],[143,242],[143,248],[211,248],[211,257],[296,257],[296,251],[359,251],[359,243],[407,243],[407,254],[469,254],[469,266],[537,266],[537,255],[576,255],[576,284],[0,284]], '#b95f49');
+      rect(25, 175, 32, 2, '#df8d5f'); rect(260, 164, 46, 2, '#df8d5f');
+      rect(152, 185, 37, 2, '#dc875a'); rect(405, 201, 48, 2, '#db8558');
+      rect(236, 231, 43, 2, '#db8558'); rect(329, 270, 60, 2, '#d07952');
+      // Seeded positions stop the dust from jumping around every frame.
+      for (let i = 0; i < 110; i++) {
+        rect((i * 83 + 13) % 576, 162 + (i * 31) % 120, i % 4 === 0 ? 3 : 1, 1, i % 2 ? '#df8b60' : '#a85748');
+      }
+      crater(45, 222, 23); crater(267, 185, 17); crater(405, 229, 27); crater(164, 264, 18); crater(474, 163, 13);
+      rock(32, 184, 1.4); rock(186, 165, 1); rock(347, 205, 1.5); rock(562, 217, 1.4);
+      rock(226, 263, 1); rock(425, 171, 0.8); rock(67, 271, 1.4); rock(546, 268, 1.7);
+      // A tiny supply crate. Of course the cats brought a cardboard box.
+      rect(66, 235, 14, 10, '#764a3f'); rect(67, 234, 12, 8, '#d2a06d');
+      rect(72, 234, 2, 8, '#a66e4b'); rect(67, 235, 12, 1, '#ebbd85');
+      drawLander(); drawRadio(time); drawFlag(time);
+      cells.forEach((cell, i) => {
+        if (cell.found) return;
+        const bob = reduceMotion ? 0 : Math.round(Math.sin(time * 2 + i) * 2);
+        rect(cell.x - 5, cell.y + 1, 11, 2, '#a75547');
+        sprite(cellSprite, cell.x - 3, cell.y - 9 + bob, { d: '#705047', w: '#fff0b0', y: '#f9c866' });
+        rect(cell.x + 7, cell.y - 13 + bob, 1, 5, '#ffe9a7');
+        rect(cell.x + 5, cell.y - 11 + bob, 5, 1, '#ffe9a7');
+      });
+      const cats = [{ ...captain, npc: true }, { ...player, npc: false }].sort((a, b) => a.y - b.y);
+      cats.forEach(cat => {
+        rect(cat.x - 6, cat.y, 14, 3, '#a55546');
+        const hop = !cat.npc && walking && !reduceMotion ? Math.floor(time * 9) % 2 : 0;
+        sprite(catSprite, cat.x - 6, cat.y - 15 - hop, cat.npc ? { ...catColors, o: '#a4a8a3', b: '#809684' } : catColors);
+        if (cat.npc) { label('MISO', cat.x + 1, cat.y + 11, '#f7cfa1', 5); }
+        else {
+          label('PIP', cat.x + 1, cat.y - 22, '#fff0c5', 5);
+          rect(cat.x, cat.y - 20, 2, 2, '#ffe2a8');
+        }
+      });
+      if (nearby && !finished) {
+        const obj = nearby.object;
+        rect(obj.x - 6, obj.y - 32, 13, 10, '#332d38');
+        label('!', obj.x + 1, obj.y - 25, '#ffe0a1', 7);
+      }
+      // Foreground stones frame the landing site.
+      rock(10, 285, 3); rock(286, 290, 3); rock(571, 289, 3);
+    }
+
+    function say(name, text) {
+      document.getElementById('speaker').textContent = name;
+      document.getElementById('dialogue-text').textContent = text;
+    }
+    function playNote(frequency = 660) {
+      if (!soundOn || !audioContext) return;
+      const oscillator = audioContext.createOscillator();
+      const volume = audioContext.createGain();
+      oscillator.type = 'square'; oscillator.frequency.value = frequency;
+      volume.gain.setValueAtTime(0.035, audioContext.currentTime);
+      volume.gain.exponentialRampToValueAtTime(0.001, audioContext.currentTime + 0.14);
+      oscillator.connect(volume); volume.connect(audioContext.destination);
+      oscillator.start(); oscillator.stop(audioContext.currentTime + 0.15);
+    }
+    function updateObjective() {
+      const count = cells.filter(cell => cell.found).length;
+      document.getElementById('objective').textContent = finished ? 'Welcome home.' : repaired ? 'Plant the flag by the radio' : count === 3 ? 'Repair the radio on the right' : 'Find the power cells';
+      document.getElementById('progress').textContent = finished ? '✓' : count < 3 ? `${count} / 3` : '';
+    }
+    function findNearby() {
+      const objects = cells.filter(cell => !cell.found).map(cell => ({ object: cell, type: 'cell', text: 'Pick up cell' }));
+      objects.push({ object: captain, type: 'captain', text: 'Talk to Miso' });
+      if (!repaired) objects.push({ object: radio, type: 'radio', text: 'Repair radio' });
+      if (repaired && !finished) objects.push({ object: flag, type: 'flag', text: 'Plant flag' });
+      nearby = objects.filter(item => Math.hypot(player.x - item.object.x, player.y - item.object.y) < 23)
+        .sort((a, b) => Math.hypot(player.x - a.object.x, player.y - a.object.y) - Math.hypot(player.x - b.object.x, player.y - b.object.y))[0] || null;
+      const hint = nearby ? nearby.text : finished ? 'Go explore' : 'Move closer';
+      if (actionHint.textContent !== hint) actionHint.textContent = hint;
+      action.disabled = !nearby;
+    }
+    function interact() {
+      if (ending.open || !nearby) return;
+      const count = cells.filter(cell => cell.found).length;
+      if (nearby.type === 'cell') {
+        nearby.object.found = true;
+        const lines = ['Found one! A bit dusty, but it works.', 'Two down. One more to go.', 'All three! Take them to the radio on the right.'];
+        say('PIP', lines[count]); playNote(740 + count * 130);
+      } else if (nearby.type === 'captain') {
+        say('MISO', finished ? 'Good work, Pip. Now, where should we nap?' : repaired ? 'Plant our flag at the cross by the radio.' : count === 3 ? 'The radio is on the right. Time to call home!' : 'Look for the three golden sparkles. I’ll guard the snacks.');
+        playNote(440);
+      } else if (nearby.type === 'radio') {
+        if (count < 3) { say('PIP', `The radio needs 3 cells. We have ${count}.`); }
+        else { repaired = true; say('EARTH', 'We hear you, little explorers! Now plant your flag.'); playNote(980); }
+      } else if (nearby.type === 'flag') {
+        finished = true; stopMoving();
+        say('MISO', 'One small step for a cat. One giant leap for nap-kind.');
+        playNote(1200); ending.showModal();
+      }
+      updateObjective(); findNearby();
+    }
+
+    // The same joystick works with a mouse or a finger.
+    const joystick = nipplejs.create({
+      zone: document.getElementById('joystick'),
+      mode: 'static',
+      position: { left: '50%', top: '50%' },
+      size: 90,
+      color: { front: '#b74430', back: '#cbbda5' },
+      restOpacity: 1,
+      fadeTime: reduceMotion ? 0 : 100
+    });
+    joystick.on('move', event => {
+      if (ending.open) return;
+      const { x, y } = event.data.vector;
+      const active = Math.hypot(x, y) > 0.15;
+      movement.x = active ? x : 0;
+      movement.y = active ? -y : 0; // Canvas y points down.
+    });
+    joystick.on('end', () => { movement.x = 0; movement.y = 0; });
+    function stopMoving() {
+      Object.keys(keys).forEach(key => keys[key] = false);
+      movement.x = 0; movement.y = 0; walking = false;
+      joystick.actives.forEach(stick => stick.end());
+    }
+    const movementKeys = ['w', 'a', 's', 'd', 'arrowup', 'arrowleft', 'arrowdown', 'arrowright'];
+    window.addEventListener('keydown', event => {
+      if (ending.open || event.ctrlKey || event.metaKey || event.altKey) return;
+      const key = event.key.toLowerCase();
+      if (movementKeys.includes(key)) { event.preventDefault(); keys[key] = true; }
+      if (key === 'e' && !event.repeat) { event.preventDefault(); interact(); }
+    });
+    window.addEventListener('keyup', event => { keys[event.key.toLowerCase()] = false; });
+    window.addEventListener('blur', stopMoving);
+    document.addEventListener('visibilitychange', () => { if (document.hidden) stopMoving(); });
+    window.addEventListener('resize', stopMoving);
+    action.addEventListener('click', interact);
+    document.getElementById('restart').addEventListener('click', () => {
+      ending.close(); stopMoving(); repaired = false; finished = false;
+      cells.forEach(cell => cell.found = false); player.x = 153; player.y = 230;
+      say('MISO', 'We made it! Find 3 power cells so we can call home.');
+      updateObjective(); findNearby();
+    });
+    document.getElementById('sound').addEventListener('click', async () => {
+      if (!audioContext) {
+        const Audio = window.AudioContext || window.webkitAudioContext;
+        if (!Audio) return;
+        audioContext = new Audio();
+      }
+      try { await audioContext.resume(); } catch { return; }
+      soundOn = !soundOn;
+      document.getElementById('sound').setAttribute('aria-pressed', String(soundOn));
+      document.getElementById('sound').textContent = soundOn ? 'Sound on' : 'Sound off';
+      playNote(520);
+    });
+
+    function loop(timestamp) {
+      const delta = Math.min((timestamp - lastTime) / 1000, 0.05);
+      lastTime = timestamp;
+      walking = false;
+      if (!ending.open) {
+        let dx = (keys.d || keys.arrowright ? 1 : 0) - (keys.a || keys.arrowleft ? 1 : 0);
+        let dy = (keys.s || keys.arrowdown ? 1 : 0) - (keys.w || keys.arrowup ? 1 : 0);
+        if (movement.x || movement.y) { dx = movement.x; dy = movement.y; }
+        const length = Math.hypot(dx, dy);
+        if (length > 0) {
+          // Clamp diagonals, while keeping slow joystick movement possible.
+          const scale = 65 * delta / Math.max(1, length);
+          player.x = Math.max(16, Math.min(560, player.x + dx * scale));
+          player.y = Math.max(164, Math.min(272, player.y + dy * scale));
+          walking = true;
+        }
+        findNearby();
+      }
+      draw(timestamp / 1000);
+      requestAnimationFrame(loop);
+    }
+    portrait.imageSmoothingEnabled = false;
+    sprite(catSprite, 3, 0, { ...catColors, o: '#a4a8a3', b: '#809684' }, 2, portrait);
+    ctx.imageSmoothingEnabled = false;
+    requestAnimationFrame(loop);
+  </script>
+</body>
+</html>
